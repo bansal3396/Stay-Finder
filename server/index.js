@@ -23,7 +23,7 @@ app.use("/users", userRoutes)
 const PORT = 3001;
 mongoose
   .connect(process.env.MONGO_URL, {
-    dbName: "Dream_Nest",
+    dbName: "Stay_Finder",
   })
   .then(() => {
     app.listen(PORT, () => console.log(`Server Port: ${PORT}`));
