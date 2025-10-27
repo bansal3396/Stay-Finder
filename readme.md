@@ -1,6 +1,6 @@
-DREAM NEST: A Full-stack Home Rental Application
+STAY FINDER: A Full-stack Home Rental Application
 
-DREAM NEST is a comprehensive and Responsive full-stack project designed for home rentals. Let’s explore its various features and functionalities:
+STAY FINDER is a comprehensive and Responsive full-stack project designed for home rentals. Let’s explore its various features and functionalities:
 
 1.Sign Up and Log In:
 *New users can sign up via the provided link.
