@@ -1,19 +1,39 @@
 router.post("/book", async (req, res) => {
-  const { propertyId, userId, startDate, endDate } = req.body;
-  const lockKey = `lock:property:${propertyId}`;   //
+  const { propertyId, userId, startDate, endDate, amount } = req.body;
+  const lockKey = `lock:property:${propertyId}`;
 
-  // 1️⃣ Acquire Redis lock
-  const lock = await redis.set(lockKey, "locked", "NX", "EX", 120);
+  const lock = await redis.set(lockKey, "NX", "EX", 120);
+  
   if (!lock) {
     return res.status(423).json({
-      message: "Another booking is in progress. Try again."
+      message: "This property is currently being held for another booking. Please try again in a minute."
     });
   }
 
   const session = await mongoose.startSession();
-  session.startTransaction();
 
   try {
+    const existing = await Booking.findOne({
+      propertyId,
+      startDate: { $lt: new Date(endDate) },
+      endDate: { $gt: new Date(startDate) }
+    });
+
+    if (existing) {
+      return res.status(409).json({ message: "Property already booked for these dates." });
+    }
+    const paymentResponse = await paymentGateway.process({
+      userId,
+      amount,
+      currency: "USD"
+    });
+
+    if (paymentResponse.status !== 'success') {
+      throw new Error("Payment failed"); 
+    }
+
+    session.startTransaction();
+
     const conflict = await Booking.findOne(
       {
         propertyId,
@@ -25,10 +45,10 @@ router.post("/book", async (req, res) => {
     );
 
     if (conflict) {
+      // This is a rare edge case where the lock might have expired
       await session.abortTransaction();
-      return res.status(409).json({
-        message: "Property already booked"
-      });
+      // Logic for refund here
+      return res.status(409).json({ message: "Conflict detected during finalization." });
     }
 
     await Booking.create(
@@ -36,21 +56,28 @@ router.post("/book", async (req, res) => {
         propertyId,
         userId,
         startDate,
-        endDate
+        endDate,
+        paymentId: paymentResponse.id // Store the transaction ID
       }],
       { session }
     );
 
+    // 5️⃣ Commit changes
     await session.commitTransaction();
-
-    res.status(201).json({ message: "Booking successful" });
+    res.status(201).json({ message: "Booking and Payment successful" });
 
   } catch (err) {
-    await session.abortTransaction();
-    res.status(500).json({ message: "Booking failed" });
-  } finally {
-    session.endSession();
-    await redis.del(lockKey);
-  }
-});
+    if (session.inAtomicity()) {
+      await session.abortTransaction();
+    }
+    
+    console.error("Booking Error:", err);
+    res.status(err.message === "Payment failed" ? 402 : 500).json({ 
+      message: err.message || "Internal server error" 
+    });
 
+  }
+  session.endSession();
+  await redis.del(lockKey);
+  }
+);
