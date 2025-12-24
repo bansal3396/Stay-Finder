@@ -45,9 +45,9 @@ router.post("/book", async (req, res) => {
     );
 
     if (conflict) {
-      // This is a rare edge case where the lock might have expired
+      //  rare edge case where the lock might have expired
       await session.abortTransaction();
-      // Logic for refund here
+      // for refund here
       return res.status(409).json({ message: "Conflict detected during finalization." });
     }
 
@@ -61,8 +61,7 @@ router.post("/book", async (req, res) => {
       }],
       { session }
     );
-
-    // 5️⃣ Commit changes
+    
     await session.commitTransaction();
     res.status(201).json({ message: "Booking and Payment successful" });
 
