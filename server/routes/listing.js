@@ -1,18 +1,34 @@
 const router = require("express").Router();
 const multer = require("multer");
-
 const Listing = require("../models/Listing");
 
-
-/* Configuration Multer for File Upload */
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, "public/uploads/"); // Store uploaded files in the 'uploads' folder
+    cb(null, "public/uploads/");
   },
   filename: function (req, file, cb) {
-    cb(null, file.originalname); // Use the original file name
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + "-" + file.originalname);
   },
 });
+
+const fileFilter = (req, file, cb) => {
+  if (file.mimetype === "image/jpeg" || file.mimetype === "image/png") {
+    cb(null, true);
+  } else {
+    cb(new Error("Invalid file type. Only JPG and PNG are allowed!"), false);
+  }
+};
+
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 2 * 1024 * 1024
+  },
+  fileFilter: fileFilter
+});
+
+module.exports = router;
 
 const upload = multer({ storage });
 
